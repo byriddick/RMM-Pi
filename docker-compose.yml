@@ -1,0 +1,115 @@
+# Especifica la versión de Docker Compose que se está utilizando
+version: '3.8'
+
+# Definición de los servicios (contenedores) que se iniciarán
+services:
+  # Servicio DuckDNS - Actualiza automáticamente las direcciones IP dinámicas en DuckDNS
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest  # Imagen de Docker a usar
+    container_name: duckdns  # Nombre del contenedor
+    environment:
+      - PUID=1000  # ID del usuario para el contenedor
+      - PGID=1000  # ID del grupo para el contenedor
+      - TZ=Europe/Madrid  # Zona horaria
+      - SUBDOMAINS=subdomain1  # Subdominio en DuckDNS
+      - TOKEN=token  # Token de acceso para la API de DuckDNS
+      - UPDATE_IP=ipv4  # Protocolo IP que se debe actualizar
+      - LOG_FILE=false  # Desactiva el registro en un archivo
+    volumes:
+      - ./duckdns:/config  # Monta un volumen local para la configuración
+    restart: unless-stopped  # Reinicia el contenedor a menos que se detenga manualmente
+
+  # Servicio WG-Easy - Configura un servidor WireGuard para VPN fácilmente
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy  # Imagen de Docker a usar
+    container_name: wg-easy  # Nombre del contenedor
+    environment:
+      - LANG=en_US  # Idioma para el entorno
+      - WG_HOST=DirecciónIpPública/Dominio  # Nombre de host accesible públicamente
+      - PASSWORD=password  # Contraseña de administración para la interfaz web
+    volumes:
+      - ./wg-easy:/etc/wireguard  # Monta un volumen local para la configuración de WireGuard
+    ports:
+      - 51820:51820/udp  # Puerto UDP para WireGuard
+      - 51821:51821/tcp  # Puerto TCP para la interfaz web
+    cap_add:
+      - NET_ADMIN  # Permisos adicionales para la administración de red
+      - SYS_MODULE  # Permite cargar módulos del kernel
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1  # Configura IP forwarding en el sistema
+      - net.ipv4.ip_forward=1
+    restart: unless-stopped
+
+  # Servicio Heimdall - Tablero de control para acceder fácilmente a otros servicios
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    container_name: heimdall
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Madrid
+    volumes:
+      - ./heimdall:/config  # Monta un volumen local para la configuración
+    ports:
+      - 80:80  # Puerto HTTP
+      - 443:443  # Puerto HTTPS
+    restart: unless-stopped
+
+  # Servicio Portainer - Interfaz web para administrar contenedores Docker
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: always  # Reinicia siempre el contenedor si falla
+    ports:
+      - "8000:8000"  # Puerto para la API de Edge
+      - "9443:9443"  # Puerto HTTPS para la interfaz web
+    volumes:
+      # Monta el socket de Docker para permitir que Portainer administre el servidor Docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Monta un volumen local para la configuración de Portainer
+      - ./portainer:/config
+
+  # Servicio Prometheus - Monitorea métricas y las expone para su visualización
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"  # Puerto para la interfaz web de Prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus  # Monta un volumen local para la configuración
+      - prometheus_data:/prometheus  # Volumen persistente para las bases de datos de Prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'  # Archivo de configuración específico
+
+  # Servicio Grafana - Visualiza las métricas en gráficos y paneles interactivos
+  grafana:
+    image: grafana/grafana:latest
+    restart: always  # Reinicia siempre el contenedor si falla
+    container_name: grafana
+    env_file:
+      - .env  # Archivo de entorno con variables sensibles
+    ports:
+      - "3000:3000"  # Puerto para la interfaz web de Grafana
+    volumes:
+      # Volumen persistente para los datos de Grafana
+      - grafana_data:/var/lib/grafana
+      - /etc/localtime:/etc/localtime  # Sincroniza la zona horaria con el sistema anfitrión
+
+  # Servicio Node Exporter - Recolecta métricas del sistema anfitrión
+  node_exporter:
+    image: prom/node-exporter:v1.2.2
+    restart: always
+    container_name: node_exporter
+    ports:
+      - "9100:9100"  # Puerto para exponer las métricas del sistema
+    volumes:
+      # Monta directorios del sistema anfitrión para recopilar métricas
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - node_exporter_config:/etc/node_exporter
+
+# Definición de volúmenes persistentes
+volumes:
+  prometheus_data:  # Almacena datos de Prometheus
+  grafana_data:  # Almacena datos de Grafana
+  node_exporter_config:  # Almacena la configuración de Node Exporter
