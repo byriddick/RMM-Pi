@@ -61,12 +61,12 @@ Este repositorio contiene una configuración de múltiples servicios utilizando 
 
 4. **Acceso a los Servicios**
     - **DuckDNS:** No necesita acceso directo.
-    - **WG-Easy:** `http://<WG_HOST>:51821`
-    - **Heimdall:** `http://localhost`
-    - **Portainer:** `https://localhost:9443`
+    - **WG-Easy:** `http://<ServerIP>:51821`
+    - **Heimdall:** `https://<ServerIP>:443`
+    - **Portainer:** `https://<ServerIP>:9443`
     - **Node Exporter:** `http://localhost:9100/metrics`
-    - **Prometheus:** `http://localhost:9090`
-    - **Grafana:** `http://localhost:3000`
+    - **Prometheus:** `http://<ServerIP>:9090`
+    - **Grafana:** `http://<ServerIP>:3000`
 
 5. **Volúmenes Persistentes**
    - Asegúrate de que los volúmenes definidos en el `docker-compose.yml` estén correctamente configurados para almacenar los datos de los servicios.
